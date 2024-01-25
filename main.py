@@ -17,6 +17,16 @@ def find_offset(correlation):
     offset = correlation.argmax() - (len(correlation) // 2)
     return offset
 
+def modify_data(data, offset):
+    if offset > 0:
+        new_data = np.column_stack((data[abs(offset):, 0], data[:-abs(offset), 1]))
+    elif offset < 0:
+        new_data = np.column_stack((data[:-abs(offset), 0], data[abs(offset):, 1]))
+    else:
+        new_data = data
+    return new_data
+
+
 def process_wav_file(wav_filename, sync_duration_ms):
     sample_rate, data = wavfile.read(wav_filename)
     sync_length = int(sample_rate * sync_duration_ms / 1000)
@@ -26,33 +36,35 @@ def process_wav_file(wav_filename, sync_duration_ms):
     offset = find_offset(correlations)
 
     data = data[sync_length:]
-    if offset > 0:
-        new_data = np.column_stack((data[abs(offset):, 0], data[:-abs(offset), 1]))
-    elif offset < 0:
-        new_data = np.column_stack((data[:-abs(offset), 0], data[abs(offset):, 1]))
-    else:
-        new_data = data
+    new_data = modify_data(data, offset)
 
-    base_filename = os.path.basename(wav_filename).split('.', 1)[0]
-    new_filename = base_filename + ".wav"
-    new_directory = os.path.join(folder_path,"processed")
-    if not os.path.exists(new_directory):
-        os.makedirs(new_directory)
-    new_path = os.path.join(new_directory, new_filename)
-    wavfile.write(new_path, sample_rate, new_data.astype(np.int16))
 
-    return offset 
+    print(f"File: {file}, Offset: {offset}")
+
+    return new_data, sample_rate 
 
 # Folder containing WAV files
 folder_path = '/home/imnos/projects/diplomarbeit/software/pi-remote-dir/recordings'
+new_directory = os.path.join(folder_path,"processed")
 
-# Iterate through each file in the folder
-for file in os.listdir(folder_path):
-    if file.endswith('.raw.wav'):
-        wav_file_path = os.path.join(folder_path, file)
-        try:
-            start_offset = process_wav_file(wav_file_path, 15)
-            print(f"File: {file}, Offset: {start_offset}")
-         
-        except Exception as e:
-            print(f"Error processing file {file}: {e}")
+if not os.path.exists(new_directory):
+    os.makedirs(new_directory)
+
+while True:
+    # Iterate through each file in the folder
+    for file in os.listdir(folder_path):
+        if file.endswith('.raw.wav'):
+            base_filename = file.split('.', 1)[0]
+            processed_file_path = os.path.join(new_directory, base_filename + ".wav")
+
+            # Skip if the file already exists
+            if os.path.exists(processed_file_path):
+                continue
+
+            wav_file_path = os.path.join(folder_path, file)
+            try:
+                new_data, sample_rate = process_wav_file(wav_file_path, 15)
+                wavfile.write(processed_file_path, sample_rate, new_data.astype(np.int16))
+
+            except Exception as e:
+                print(f"Error processing file {file}: {e}")
