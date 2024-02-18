@@ -1,3 +1,5 @@
 .venv
 .vscode
-test_files/*
+test_files
+processed
+**/*.wav
