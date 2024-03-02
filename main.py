@@ -1,7 +1,9 @@
 import os
+import sys
 import numpy as np
 from scipy.io import wavfile
 from scipy.signal import correlate
+from tqdm import tqdm
 
 def normalize(signal):
     max_val = np.max(np.abs(signal)) # Ermittelt den maximalen Wert 
@@ -43,28 +45,37 @@ def process_wav_file(wav_filename, sync_duration_ms):
 
     return new_data, sample_rate 
 
-# Folder containing WAV files
-folder_path = '/home/jszuecs/Documents/school/itp-projects/PlantWhispers/post-sync'
-new_directory = os.path.join(folder_path,"processed")
+if len(sys.argv) > 1:
+    folder_path = sys.argv[1]  # First command-line argument
+    if os.path.exists(folder_path):
+        print(f"The folder '{folder_path}' exists.")
+        # Count the number of .wav files
+        wav_files = [file for file in os.listdir(folder_path) if file.endswith('.wav')]
+        total_files = len(wav_files)
+        print(f"Processing {total_files} files...")
+    else:
+        print(f"The folder '{folder_path}' does not exist.")
+        sys.exit(1)  # Exit if folder does not exist
+else:
+    print("Please provide a folder path as a command-line argument.")
+    sys.exit(1)  # Exit if no argument is provided
 
+new_directory = os.path.join(folder_path, "processed")
 if not os.path.exists(new_directory):
     os.makedirs(new_directory)
 
-while True:
-    # Iterate through each file in the folder
-    for file in os.listdir(folder_path):
-        if file.endswith('.raw.wav'):
-            base_filename = file.split('.', 1)[0]
-            processed_file_path = os.path.join(new_directory, base_filename + ".wav")
+# Use tqdm for the progress bar, iterating over wav_files
+for file in tqdm(wav_files, desc="Processing", unit="file"):
+    base_filename = file.split('.', 1)[0]
+    processed_file_path = os.path.join(new_directory, base_filename + ".wav")
 
-            # Skip if the file already exists
-            if os.path.exists(processed_file_path):
-                continue
+    # Skip if the file already exists
+    if os.path.exists(processed_file_path):
+        continue
 
-            wav_file_path = os.path.join(folder_path, file)
-            try:
-                new_data, sample_rate = process_wav_file(wav_file_path, 15)
-                wavfile.write(processed_file_path, sample_rate, new_data.astype(np.int16))
-
-            except Exception as e:
-                print(f"Error processing file {file}: {e}")
+    wav_file_path = os.path.join(folder_path, file)
+    try:
+        new_data, sample_rate = process_wav_file(wav_file_path, 100)
+        wavfile.write(processed_file_path, sample_rate, new_data.astype(np.int16))
+    except Exception as e:
+        print(f"Error processing file {file}: {e}")
