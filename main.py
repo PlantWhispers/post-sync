@@ -4,6 +4,7 @@ import numpy as np
 from scipy.io import wavfile
 from scipy.signal import correlate
 from tqdm import tqdm
+from scipy.signal import butter, filtfilt
 
 def normalize(signal):
     max_val = np.max(np.abs(signal)) # Ermittelt den maximalen Wert 
@@ -28,6 +29,16 @@ def modify_data(data, offset):
         new_data = data
     return new_data
 
+def high_pass_filter(data, sample_rate, cutoff=20000):
+    nyquist = 0.5 * sample_rate
+    normal_cutoff = cutoff / nyquist
+    # Order of the filter
+    order = 5
+    # Design a high-pass filter using the butterworth design
+    b, a = butter(order, normal_cutoff, btype='high', analog=False)
+    # Apply the filter to the data
+    filtered_data = filtfilt(b, a, data, axis=0)
+    return filtered_data
 
 def process_wav_file(wav_filename, sync_duration_ms):
     sample_rate, data = wavfile.read(wav_filename) # ließt wav file aus (Messungen pro sec) (Datenpunkte als Array)
@@ -40,10 +51,12 @@ def process_wav_file(wav_filename, sync_duration_ms):
     data = data[sync_length:] # schneidet sync-ton weg
     new_data = modify_data(data, offset) # synchronisiert die einzelnen Tonspuren mittels offset
 
+    # Apply high-pass filter to remove frequencies below 20kHz
+    filtered_data = high_pass_filter(new_data, sample_rate, cutoff=20000)
 
     print(f"File: {file}, Offset: {offset}")
 
-    return new_data, sample_rate 
+    return filtered_data, sample_rate 
 
 if len(sys.argv) > 1:
     folder_path = sys.argv[1]  # First command-line argument
